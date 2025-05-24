@@ -1,0 +1,9 @@
+image:
+  repository: kasperdeng/fraud-detection
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+
+replicaCount: 2

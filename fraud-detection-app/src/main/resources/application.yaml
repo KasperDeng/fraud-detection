@@ -1,0 +1,33 @@
+# Server configuration
+server:
+  port: 8080
+
+# AWS Configuration
+cloud:
+  aws:
+    region:
+      static: us-east-1
+    credentials:
+      access-key: your-access-key
+      secret-key: your-secret-key
+    queue:
+      transactions: transaction-queue
+      urlUpdatePeriodInSecs: 30
+#      endpoint: http://localhost:4566 # Only for LocalStack/testing
+
+# Fraud detection rules
+fraud:
+  detection:
+    amount:
+      threshold: 10000
+    suspicious:
+      accounts: "ACCT123456,ACCT789012,ACCT345678,ACCT-003"
+    highRiskMerchants: "Suspicious Merchant LLC,Questionable Goods Inc"
+
+# Logging
+logging:
+  level:
+    io:
+      github:
+        kasperdeng:
+          frauddetection: DEBUG

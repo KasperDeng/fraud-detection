@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fraud-detection-pdb
+spec:
+  minAvailable: 2  # OR use maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: fraud-detection

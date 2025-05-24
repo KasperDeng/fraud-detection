@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.kasperdeng</groupId>
+    <artifactId>fraud-detection</artifactId>
+    <version>${revision}${changelist}</version>
+    <packaging>pom</packaging>
+
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>fraud-detection-app</module>
+                <module>fraud-detection-ct</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>package</id>
+            <modules>
+                <module>docker/fraud-detection-docker</module>
+            </modules>
+        </profile>
+    </profiles>
+</project>
