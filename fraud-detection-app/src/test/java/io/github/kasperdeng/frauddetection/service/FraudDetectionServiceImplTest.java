@@ -10,12 +10,10 @@
 
 package io.github.kasperdeng.frauddetection.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.kasperdeng.frauddetection.model.Transaction;
 import io.github.kasperdeng.frauddetection.model.FraudDetectionResult;
+import io.github.kasperdeng.frauddetection.model.Transaction;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,12 +31,14 @@ class FraudDetectionServiceImplTest {
   private Transaction normalTransaction;
   private Transaction highAmountTransaction;
   private Transaction suspiciousAccountTransaction;
+  private Transaction highRiskMerchantsTransaction;
+  private Transaction highRiskZoneTransaction;
 
   @BeforeEach
   void setUp() {
     fraudDetectionService = new FraudDetectionServiceImpl(new BigDecimal("5000"),
-        List.of("ACCT123456,ACCT789012,ACCT345678"),
-        List.of("Suspicious Merchant LLC,Questionable Goods Inc"));
+            List.of("ACCT123456", "ACCT789012", "ACCT345678"),
+            List.of("Suspicious Merchant LLC", "Questionable Goods Inc"));
 
     normalTransaction = new Transaction(
         "TXN123", "ACCT987654", new BigDecimal("100.00"),
@@ -54,6 +54,13 @@ class FraudDetectionServiceImplTest {
         "TXN789", "ACCT123456", new BigDecimal("50.00"),
         "Normal Merchant", "New York", LocalDateTime.now()
     );
+    highRiskMerchantsTransaction = new Transaction(
+        "TXN987", "ACCT987654", new BigDecimal("200.00"),
+        "Suspicious Merchant LLC", "New York", LocalDateTime.now()
+    );
+    highRiskZoneTransaction = new Transaction("TXN987", "ACCT987654", new BigDecimal("300.00"),
+        "Normal Merchant", "High Risk Zone", LocalDateTime.now()
+    );
   }
 
   @AfterEach
@@ -63,22 +70,38 @@ class FraudDetectionServiceImplTest {
   @Test
   void testNormalTransaction() {
     FraudDetectionResult result = fraudDetectionService.analyzeTransaction(normalTransaction);
-    assertFalse(result.isFraudulent());
-    assertEquals("Transaction appears legitimate", result.getReason());
+    assertThat(result.isFraudulent()).isFalse();
+    assertThat(result.getReason()).isEqualTo("Transaction appears legitimate");
   }
 
   @Test
   void testHighAmountTransaction() {
     FraudDetectionResult result = fraudDetectionService.analyzeTransaction(highAmountTransaction);
-    assertTrue(result.isFraudulent());
-    assertTrue(result.getReason().contains("exceeds threshold"));
+    assertThat(result.isFraudulent()).isTrue();
+    assertThat(result.getReason()).contains("exceeds threshold");
   }
 
   @Test
   void testSuspiciousAccountTransaction() {
     FraudDetectionResult result = fraudDetectionService.analyzeTransaction(
         suspiciousAccountTransaction);
-    assertTrue(result.isFraudulent());
-    assertTrue(result.getReason().contains("suspicious accounts list"));
+    assertThat(result.isFraudulent()).isTrue();
+    assertThat(result.getReason()).contains("suspicious accounts list");
+  }
+
+  @Test
+  void testHighRiskMerchantsTransaction() {
+    FraudDetectionResult result = fraudDetectionService.analyzeTransaction(
+        highRiskMerchantsTransaction);
+    assertThat(result.isFraudulent()).isTrue();
+    assertThat(result.getReason()).contains("high-risk merchants list");
+  }
+
+  @Test
+  void testHighRiskZoneTransaction() {
+    FraudDetectionResult result = fraudDetectionService.analyzeTransaction(
+        highRiskZoneTransaction);
+    assertThat(result.isFraudulent()).isTrue();
+    assertThat(result.getReason()).contains("Transaction from high risk location");
   }
 }

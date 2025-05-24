@@ -35,11 +35,11 @@ public class ReadinessHealthIndicator extends AbstractHealthIndicator {
   }
 
   @PostConstruct
-  public void initScheduledExecutor() {
+  protected void initScheduledExecutor() {
     ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
         new CustomizableThreadFactory("readiness-async-check"));
     executor.scheduleWithFixedDelay(this::checkSqsConnectivity, 0, 10, TimeUnit.SECONDS);
-    log.debug("init readiness check schedule");
+    log.debug("Init readiness check schedule.");
   }
 
   @Override
@@ -52,7 +52,7 @@ public class ReadinessHealthIndicator extends AbstractHealthIndicator {
     }
   }
 
-  private void checkSqsConnectivity() {
+  protected void checkSqsConnectivity() {
     sqsAsyncClient.listQueues(ListQueuesRequest.builder().maxResults(1).build())
         .whenComplete((response, ex) -> {
           if (ex == null) {
@@ -61,7 +61,7 @@ public class ReadinessHealthIndicator extends AbstractHealthIndicator {
             isHealthy.set(false);
             log.warn("[Health Check] Connectivity issue of AWS SQS.");
             if (log.isTraceEnabled()) {
-              log.debug("[Health Check] Connectivity issue of AWS SQS.", ex);
+              log.trace("[Health Check] Connectivity issue of AWS SQS.", ex);
             }
           }
         });

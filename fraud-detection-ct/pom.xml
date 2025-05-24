@@ -10,13 +10,15 @@
     <version>${revision}${changelist}</version>
 
     <properties>
-        <repo-internal-version>${revision}${changelist}</repo-internal-version>
-        <spring-boot.version>3.4.4</spring-boot.version>
-        <httpasyncclient.version>4.1.5</httpasyncclient.version>
         <assertj.version>3.27.3</assertj.version>
         <cucumber.version>7.21.0</cucumber.version>
+        <httpasyncclient.version>4.1.5</httpasyncclient.version>
+        <jacoco.excludes></jacoco.excludes>
+        <jacoco.version>0.8.10</jacoco.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <repo-internal-version>${revision}${changelist}</repo-internal-version>
+        <spring-boot.version>3.4.4</spring-boot.version>
         <!-- 1.19.2+ has issue on ryuk which cannot clear the containers after test-->
         <testcontainer.version>1.21.0</testcontainer.version>
     </properties>
@@ -54,13 +56,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <version>${spring-boot.version}</version>
         </dependency>
-
-<!--        <dependency>-->
-<!--            <groupId>cloud.localstack</groupId>-->
-<!--            <artifactId>localstack-utils</artifactId>-->
-<!--            <version>0.2.23</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sqs</artifactId>
@@ -119,6 +114,13 @@
             <version>${cucumber.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.agent</artifactId>
+            <version>${jacoco.version}</version>
+            <classifier>runtime</classifier>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -134,6 +136,71 @@
                         <version>5.10.1</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>offline-instrument</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>instrument</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>${jacoco.excludes}</excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>restore-instrumented-classes</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>restore-instrumented-classes</goal>
+                            <!--Restore instrumented classes (by jacoco) for pacakge.-->
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-initialize</id>
+                        <phase>test-compile</phase>
+                        <configuration>
+                            <excludes>
+                                <exclude>*</exclude>
+                                <!--To prepare jacoco agent. exclude * to skip default on-the-fly instrumentation.-->
+                            </excludes>
+                        </configuration>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-merge</id>
+                        <phase>package</phase>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}/jacoco/</directory>
+                                    <includes>
+                                        <include>*.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                        </configuration>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>${jacoco.excludes}</excludes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

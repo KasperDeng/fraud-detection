@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SqsListenerManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fraud-detection-app</a> &gt; <a href="index.source.html" class="el_package">io.github.kasperdeng.frauddetection.listener</a> &gt; <span class="el_source">SqsListenerManager.java</span></div><h1>SqsListenerManager.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * COPYRIGHT KASPERDENG 2025
+ * The copyright to the computer program(s) herein is the property of
+ * Kasperdeng (https://github.com/KasperDeng).
+ * The programs may be used and/or copied only with written
+ * permission from Kasperdeng or in accordance with the terms and
+ * conditions stipulated in the agreement/contract under which the
+ * program(s) have been supplied.
+ ******************************************************************************/
+
+package io.github.kasperdeng.frauddetection.listener;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kasperdeng.frauddetection.model.Transaction;
+import io.github.kasperdeng.frauddetection.service.FraudDetectionService;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.SmartLifecycle;
+import org.springframework.stereotype.Component;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
+
+@Component
+<span class="fc" id="L40">@Slf4j</span>
+public class SqsListenerManager implements SmartLifecycle {
+
+<span class="fc" id="L43">  private final long INIT_DELAY_SECS = 5;</span>
+<span class="fc" id="L44">  private volatile long delaySeconds = INIT_DELAY_SECS;</span>
+  @Value(&quot;${cloud.aws.queue.urlUpdatePeriodInSecs:30}&quot;)
+  private long queueUrlUpdatePeriodInSec;
+  @Value(&quot;${cloud.aws.queue.transactions}&quot;)
+  private String transactionsQueue;
+  private final SqsAsyncClient sqsAsyncClient;
+<span class="fc" id="L50">  private final ObjectMapper objectMapper = new ObjectMapper();</span>
+
+  private SQSListener sqsListener;
+<span class="fc" id="L53">  private volatile boolean running = false;</span>
+
+<span class="fc" id="L55">  private volatile String queueUrl = &quot;&quot;;</span>
+<span class="fc" id="L56">  private final ScheduledExecutorService retryExecutor = Executors.newSingleThreadScheduledExecutor();</span>
+
+<span class="fc" id="L58">  private final ExecutorService executor = Executors.newSingleThreadExecutor();</span>
+
+<span class="fc" id="L60">  private final AtomicReference&lt;ScheduledFuture&lt;?&gt;&gt; scheduledTaskRef = new AtomicReference&lt;&gt;();</span>
+<span class="fc" id="L61">  private final AtomicReference&lt;Future&lt;?&gt;&gt; taskRef = new AtomicReference&lt;&gt;();</span>
+
+<span class="fc" id="L63">  public SqsListenerManager(SqsAsyncClient sqsAsyncClient, SQSListener sqsListener) {</span>
+<span class="fc" id="L64">    this.sqsAsyncClient = sqsAsyncClient;</span>
+<span class="fc" id="L65">    this.sqsListener = sqsListener;</span>
+<span class="fc" id="L66">  }</span>
+
+  @Override
+  public boolean isAutoStartup() {
+<span class="fc" id="L70">    return true;</span>
+  }
+
+  @Override
+  public void start() {
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">    if (!this.running) {</span>
+<span class="fc" id="L76">      scheduleNextTask();</span>
+<span class="fc" id="L77">      this.running = true;</span>
+    }
+<span class="fc" id="L79">  }</span>
+
+  private void scheduleNextTask() {
+<span class="fc" id="L82">    ScheduledFuture&lt;?&gt; future = retryExecutor.scheduleWithFixedDelay(this::getQueueUrlTask,</span>
+        0, delaySeconds, TimeUnit.SECONDS);
+<span class="fc" id="L84">    scheduledTaskRef.set(future);</span>
+<span class="fc" id="L85">  }</span>
+
+  protected void getQueueUrlTask() {
+    try {
+<span class="fc" id="L89">      String result = sqsAsyncClient.getQueueUrl(GetQueueUrlRequest.builder()</span>
+<span class="fc" id="L90">          .queueName(transactionsQueue)</span>
+<span class="fc" id="L91">          .build()).get().queueUrl();</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">      if (!Objects.equals(result, queueUrl)) {</span>
+<span class="fc" id="L93">        queueUrl = result;</span>
+<span class="fc" id="L94">        log.info(&quot;SQS getQueueUrl successfully &quot; + queueUrl);</span>
+<span class="fc" id="L95">        delaySeconds = queueUrlUpdatePeriodInSec;</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (taskRef.get() != null) {</span>
+<span class="fc" id="L97">          taskRef.get().cancel(true);</span>
+        }
+<span class="fc" id="L99">        Future&lt;?&gt; future = executor.submit(this::pollMessages);</span>
+<span class="fc" id="L100">        taskRef.set(future);</span>
+<span class="fc" id="L101">        ScheduledFuture&lt;?&gt; scheduledFuture = scheduledTaskRef.get();</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">        if (scheduledFuture != null) {</span>
+<span class="fc" id="L103">          scheduledFuture.cancel(true);</span>
+<span class="fc" id="L104">          scheduleNextTask();</span>
+        }
+      }
+<span class="fc" id="L107">    } catch (InterruptedException | ExecutionException e) {</span>
+<span class="fc" id="L108">      log.error(&quot;Failed to get queue URL from SQS: &quot; + e.getMessage());</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">      if (log.isTraceEnabled()) {</span>
+<span class="fc" id="L110">        log.trace(&quot;Failed to get queue URL from SQS&quot;, e);</span>
+      }
+<span class="fc" id="L112">    }</span>
+<span class="fc" id="L113">  }</span>
+
+  private void pollMessages() {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    while (isRunning()) {</span>
+<span class="nc" id="L117">      pollMessage0();</span>
+    }
+<span class="nc" id="L119">  }</span>
+
+  protected void pollMessage0() {
+<span class="fc" id="L122">    sqsAsyncClient.receiveMessage(createRequest())</span>
+<span class="fc" id="L123">        .thenApply(ReceiveMessageResponse::messages)</span>
+<span class="fc" id="L124">        .thenApply(collectionList -&gt; (Collection&lt;Message&gt;) collectionList)</span>
+<span class="fc" id="L125">        .thenAccept(</span>
+            msgCollection -&gt; {
+<span class="fc bfc" id="L127" title="All 2 branches covered.">              for (Message message : msgCollection) {</span>
+                try {
+<span class="fc" id="L129">                  sqsListener.processTransaction(</span>
+<span class="fc" id="L130">                      objectMapper.readValue(message.body(), Transaction.class));</span>
+<span class="nc" id="L131">                } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L132">                  throw new RuntimeException(e);</span>
+<span class="fc" id="L133">                }</span>
+<span class="fc" id="L134">                sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder()</span>
+<span class="fc" id="L135">                    .queueUrl(queueUrl).build());</span>
+<span class="fc" id="L136">              }</span>
+<span class="fc" id="L137">            }</span>
+        );
+<span class="fc" id="L139">  }</span>
+
+  private ReceiveMessageRequest createRequest() {
+<span class="fc" id="L142">    return ReceiveMessageRequest.builder()</span>
+<span class="fc" id="L143">        .queueUrl(queueUrl)</span>
+<span class="fc" id="L144">        .maxNumberOfMessages(5)</span>
+<span class="fc" id="L145">        .waitTimeSeconds(10)</span>
+<span class="fc" id="L146">        .build();</span>
+  }
+
+  @Override
+  public void stop() {
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">    if (sqsListener != null) {</span>
+<span class="fc" id="L152">      sqsListener = null;</span>
+    }
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">    if (scheduledTaskRef.get() != null) {</span>
+<span class="fc" id="L155">      scheduledTaskRef.get().cancel(true);</span>
+    }
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">    if (taskRef.get() != null) {</span>
+<span class="fc" id="L158">      taskRef.get().cancel(true);</span>
+    }
+<span class="fc" id="L160">    retryExecutor.shutdown();</span>
+<span class="fc" id="L161">    executor.shutdown();</span>
+<span class="fc" id="L162">    this.running = false;</span>
+<span class="fc" id="L163">  }</span>
+
+  @Override
+  public boolean isRunning() {
+<span class="fc" id="L167">    return this.running;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

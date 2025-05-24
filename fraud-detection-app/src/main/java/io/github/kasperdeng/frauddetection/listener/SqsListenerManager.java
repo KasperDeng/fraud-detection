@@ -46,14 +46,8 @@ public class SqsListenerManager implements SmartLifecycle {
   private long queueUrlUpdatePeriodInSec;
   @Value("${cloud.aws.queue.transactions}")
   private String transactionsQueue;
-  private final ApplicationContext applicationContext;
   private final SqsAsyncClient sqsAsyncClient;
   private final ObjectMapper objectMapper = new ObjectMapper();
-
-  public SqsListenerManager(ApplicationContext context, SqsAsyncClient sqsAsyncClient) {
-    this.applicationContext = context;
-    this.sqsAsyncClient = sqsAsyncClient;
-  }
 
   private SQSListener sqsListener;
   private volatile boolean running = false;
@@ -66,6 +60,11 @@ public class SqsListenerManager implements SmartLifecycle {
   private final AtomicReference<ScheduledFuture<?>> scheduledTaskRef = new AtomicReference<>();
   private final AtomicReference<Future<?>> taskRef = new AtomicReference<>();
 
+  public SqsListenerManager(SqsAsyncClient sqsAsyncClient, SQSListener sqsListener) {
+    this.sqsAsyncClient = sqsAsyncClient;
+    this.sqsListener = sqsListener;
+  }
+
   @Override
   public boolean isAutoStartup() {
     return true;
@@ -74,7 +73,6 @@ public class SqsListenerManager implements SmartLifecycle {
   @Override
   public void start() {
     if (!this.running) {
-      sqsListener = new SQSListener(applicationContext.getBean(FraudDetectionService.class));
       scheduleNextTask();
       this.running = true;
     }
@@ -86,7 +84,7 @@ public class SqsListenerManager implements SmartLifecycle {
     scheduledTaskRef.set(future);
   }
 
-  private void getQueueUrlTask() {
+  protected void getQueueUrlTask() {
     try {
       String result = sqsAsyncClient.getQueueUrl(GetQueueUrlRequest.builder()
           .queueName(transactionsQueue)
@@ -109,31 +107,35 @@ public class SqsListenerManager implements SmartLifecycle {
     } catch (InterruptedException | ExecutionException e) {
       log.error("Failed to get queue URL from SQS: " + e.getMessage());
       if (log.isTraceEnabled()) {
-        log.error("Failed to get queue URL from SQS", e);
+        log.trace("Failed to get queue URL from SQS", e);
       }
     }
   }
 
   private void pollMessages() {
     while (isRunning()) {
-      sqsAsyncClient.receiveMessage(createRequest())
-          .thenApply(ReceiveMessageResponse::messages)
-          .thenApply(collectionList -> (Collection<Message>) collectionList)
-          .thenAccept(
-              msgCollection -> {
-                for (Message message : msgCollection) {
-                  try {
-                    sqsListener.processTransaction(
-                        objectMapper.readValue(message.body(), Transaction.class));
-                  } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                  }
-                  sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder()
-                      .queueUrl(queueUrl).build());
-                }
-              }
-          );
+      pollMessage0();
     }
+  }
+
+  protected void pollMessage0() {
+    sqsAsyncClient.receiveMessage(createRequest())
+        .thenApply(ReceiveMessageResponse::messages)
+        .thenApply(collectionList -> (Collection<Message>) collectionList)
+        .thenAccept(
+            msgCollection -> {
+              for (Message message : msgCollection) {
+                try {
+                  sqsListener.processTransaction(
+                      objectMapper.readValue(message.body(), Transaction.class));
+                } catch (JsonProcessingException e) {
+                  throw new RuntimeException(e);
+                }
+                sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder()
+                    .queueUrl(queueUrl).build());
+              }
+            }
+        );
   }
 
   private ReceiveMessageRequest createRequest() {
@@ -148,6 +150,12 @@ public class SqsListenerManager implements SmartLifecycle {
   public void stop() {
     if (sqsListener != null) {
       sqsListener = null;
+    }
+    if (scheduledTaskRef.get() != null) {
+      scheduledTaskRef.get().cancel(true);
+    }
+    if (taskRef.get() != null) {
+      taskRef.get().cancel(true);
     }
     retryExecutor.shutdown();
     executor.shutdown();

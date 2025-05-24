@@ -9,11 +9,16 @@
     <version>${revision}${changelist}</version>
 
     <properties>
-        <spring-boot.version>3.4.4</spring-boot.version>
-        <aws-java-sdk.version>1.12.783</aws-java-sdk.version>
-        <junit5.version>5.11.4</junit5.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <assertj.version>3.27.3</assertj.version>
+        <jacoco.version>0.8.10</jacoco.version>
+        <junit5.version>5.11.4</junit5.version>
+        <lombok.version>1.18.36</lombok.version>
         <mockito.version>5.18.0</mockito.version>
+        <spring-boot.version>3.4.4</spring-boot.version>
+        <spring-cloud-aws.version>3.3.0</spring-cloud-aws.version>
+        <spring-messaging.version>6.2.5</spring-messaging.version>
+        <sqs.version>2.31.47</sqs.version>
     </properties>
 
     <dependencies>
@@ -30,28 +35,28 @@
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
-            <version>3.3.0</version>
+            <version>${spring-cloud-aws.version}</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sqs</artifactId>
-            <version>2.31.47</version>
+            <version>${sqs.version}</version>
         </dependency>
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-sqs</artifactId>
-            <version>3.3.0</version>
+            <version>${spring-cloud-aws.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-messaging</artifactId>
-            <version>6.2.5</version>
+            <version>${spring-messaging.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.36</version>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -81,9 +86,16 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <version>${spring-boot.version}</version>
+            <groupId>io.github.hakky54</groupId>
+            <artifactId>logcaptor</artifactId>
+            <version>2.11.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.agent</artifactId>
+            <version>${jacoco.version}</version>
+            <classifier>runtime</classifier>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -116,6 +128,16 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.3.0</version>
                 <executions>
@@ -126,6 +148,81 @@
                         </goals>
                         <configuration>
                             <classifier>lib</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>offline-instrument</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>instrument</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/model/**</exclude>
+                                <exclude>**/FraudDetectionApplication.class</exclude>
+                                <exclude>**/FraudDetectionService.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>restore-instrumented-classes</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>restore-instrumented-classes</goal>
+                            <!--Restore instrumented classes (by jacoco) for pacakge.-->
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-initialize</id>
+                        <phase>test-compile</phase>
+                        <configuration>
+                            <excludes>
+                                <exclude>*</exclude>
+                                <!--To prepare jacoco agent. exclude * to skip default on-the-fly instrumentation.-->
+                            </excludes>
+                        </configuration>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-merge</id>
+                        <phase>package</phase>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}/jacoco/</directory>
+                                    <includes>
+                                        <include>*.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                        </configuration>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/model/**</exclude>
+                                <exclude>**/FraudDetectionApplication.class</exclude>
+                                <exclude>**/FraudDetectionService.class</exclude>
+                            </excludes>
                         </configuration>
                     </execution>
                 </executions>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SQSListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fraud-detection-app</a> &gt; <a href="index.source.html" class="el_package">io.github.kasperdeng.frauddetection.listener</a> &gt; <span class="el_source">SQSListener.java</span></div><h1>SQSListener.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * COPYRIGHT KASPERDENG 2025
+ * The copyright to the computer program(s) herein is the property of
+ * Kasperdeng (https://github.com/KasperDeng).
+ * The programs may be used and/or copied only with written
+ * permission from Kasperdeng or in accordance with the terms and
+ * conditions stipulated in the agreement/contract under which the
+ * program(s) have been supplied.
+ ******************************************************************************/
+
+package io.github.kasperdeng.frauddetection.listener;
+
+import io.github.kasperdeng.frauddetection.model.FraudDetectionResult;
+import io.github.kasperdeng.frauddetection.model.Transaction;
+import io.github.kasperdeng.frauddetection.service.FraudDetectionService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Component
+<span class="fc" id="L20">@Slf4j</span>
+@SuppressWarnings(&quot;unused&quot;)
+public class SQSListener {
+  private final FraudDetectionService fraudDetectionService;
+
+<span class="fc" id="L25">  public SQSListener(FraudDetectionService fraudDetectionService) {</span>
+<span class="fc" id="L26">    this.fraudDetectionService = fraudDetectionService;</span>
+<span class="fc" id="L27">  }</span>
+  public void processTransaction(Transaction transaction) {
+<span class="fc" id="L29">    log.info(&quot;Received transaction: {}&quot;, transaction.getTransactionId());</span>
+
+<span class="fc" id="L31">    FraudDetectionResult result = fraudDetectionService.analyzeTransaction(transaction);</span>
+
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">    if (result.isFraudulent()) {</span>
+<span class="fc" id="L34">      log.warn(&quot;FRAUD DETECTED - Transaction ID: {}, Reason: {}&quot;,</span>
+<span class="fc" id="L35">          transaction.getTransactionId(), result.getReason());</span>
+    } else {
+<span class="nc" id="L37">      log.info(&quot;Transaction {} appears legitimate&quot;, transaction.getTransactionId());</span>
+    }
+<span class="fc" id="L39">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

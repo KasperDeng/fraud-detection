@@ -10,12 +10,13 @@
 
 package io.github.kasperdeng.frauddetection.listener;
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
 import io.github.kasperdeng.frauddetection.model.FraudDetectionResult;
 import io.github.kasperdeng.frauddetection.model.Transaction;
 import io.github.kasperdeng.frauddetection.service.FraudDetectionService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
+@Component
 @Slf4j
 @SuppressWarnings("unused")
 public class SQSListener {
@@ -24,8 +25,6 @@ public class SQSListener {
   public SQSListener(FraudDetectionService fraudDetectionService) {
     this.fraudDetectionService = fraudDetectionService;
   }
-
-  @SqsListener(value = "${cloud.aws.queue.transactions}", acknowledgementMode = "ON_SUCCESS")
   public void processTransaction(Transaction transaction) {
     log.info("Received transaction: {}", transaction.getTransactionId());
 

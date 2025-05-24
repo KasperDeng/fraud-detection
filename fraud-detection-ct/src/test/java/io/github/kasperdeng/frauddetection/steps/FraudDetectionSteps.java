@@ -131,7 +131,7 @@ public class FraudDetectionSteps {
   @Then("Fraud Detection analyze the transaction and consume the message$")
   public void analyzeTransaction() {
     Awaitility.await()
-        .atMost(Duration.ofSeconds(2))
+        .atMost(Duration.ofSeconds(5))
         .untilAsserted(() -> {
           GetQueueAttributesRequest request = GetQueueAttributesRequest.builder()
               .queueUrl(queueUrl)

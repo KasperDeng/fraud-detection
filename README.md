@@ -5,15 +5,42 @@
 * It is capable of detecting and handling fraudulent transactions swiftly and accurately.
 
 # Design Notes
-* The fraud-detection application supports readiness probe and liveness probe. The probe checks the connectivity between AWS SQS.
+
+## SQS Listener
 * One problem in the original implementation that the accessing of SQS is based on the annotation `@SqsListener` provided by spring-cloud-aws-sqs.
   But the implementation requiring the AWS SQS service shall be ready when this spring-boot application startup. During test, it will be failed the spring-boot start up due to it is implemented as bean and handled
   by BeanPostProcessor. If it is set by `@Lazy` the spring-boot can be launched but the message polling is dysfunctional and the component test is failed.
   Here an implementation with backoff re-connect mechanism is proposed, it would make it more robust in connectivity.
-* LeftOver
-  - As time limit, the detection rules now is implemented in spring-boot's application properties.
-    It can be extended to configMap and be rendered to environment variables or mounted file for fraud detection application.
-    Even more, it can be configured in central configuration management for production-grade system.
+
+## Health Check
+* The fraud-detection application supports readiness probe and liveness probe. The probe checks the connectivity between AWS SQS.
+
+## Log
+* In cloud-native, the logs are harvested and shipped to central logging system (e.g. Elasticsearch, Opensearch, Splunk or AWS cloudwatch).
+  * The recommended solution is to implement the log shipper by non-intrusive solution, e.g. by Fluent Bit or CloudWatch Agent.
+Below is a configuration example cloudwatch-agent-config.json for the CloudWatch Agent.
+```json
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/fraud-detection/server.log",
+            "log_group_name": "fraud-detection-app-logs",
+            "log_stream_name": "application"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+# LeftOver
+* As time limit, the detection rules now is implemented in spring-boot's application properties.
+  It can be extended to configMap and be rendered to environment variables or mounted file for fraud detection application.
+  Even more, it can be configured in central configuration management for production-grade system.
 
 # Build
 ## Build Environment Setup
@@ -26,7 +53,7 @@
   - `curl http://localhost:8080/actuator/health`
   - `curl -i -X POST -d @data.json -H 'Content-Type:application/json' http://localhost:8080/api/v1/fraud-detection/analyze`
 * This project has both Unit Test andComponent Test by Cucumber.
-  - run component test by `mvn test -f fraud-detection-ct/pom.xml -Dtest=FraudDetectionTest -Dcucumber.filter.tags=@fraud-detection`.
+  - run component test by `mvn test -f fraud-detection-ct/pom.xml -Dtest=FraudDetectionTest -Djacoco.classifier=jacoco -Dcucumber.filter.tags=@fraud-detection`.
   - The component test utilizes the testcontainer to simulate the AWS SQS by LocalStack.
   - Special requirement for Windows user when running test.
   - WSL with docker daemon installation.
