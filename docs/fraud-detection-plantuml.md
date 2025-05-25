@@ -61,9 +61,6 @@ box "FraudDetection" #LightBlue
   participant "Cloud Watch Agent" as cwa
 end box
 
-
-participant "PCRF" as pcrf
-
 == Health Check UP ==
 hc -> sqs++: ListQueuesRequest
 hc <-- sqs--: ListQueuesResponse
