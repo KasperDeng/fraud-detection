@@ -6,6 +6,10 @@
 
 # Design Notes
 
+![](./img/FraudDetection-Arch.png)
+
+![](./img/FraudDetection-Seq.png)
+
 ## SQS Listener
 * One problem in the original implementation that the accessing of SQS is based on the annotation `@SqsListener` provided by spring-cloud-aws-sqs.
   But the implementation requiring the AWS SQS service shall be ready when this spring-boot application startup. During test, it will be failed the spring-boot start up due to it is implemented as bean and handled
