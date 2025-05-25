@@ -93,7 +93,7 @@ Below is a configuration example cloudwatch-agent-config.json for the CloudWatch
 
   - Testcontainers Custom configuration: Refer to this connection: https://www.testcontainers.org/features/configuration/
 
-## Build artifacts
+## Build Artifacts
 * `export JAVA_HOME=<yourJDK17Path>;echo $JAVA_HOME`
 * `mvn clean package`
 * `mvn clean package -pl \!fraud-detection-ct` if you want to skip the component test.
